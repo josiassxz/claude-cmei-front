@@ -98,7 +98,7 @@ const generatePDF = async (petitionText, formData) => {
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const margin = {
-      top: 20,
+      top: 30,
       right: 25,
       bottom: 30,
       left: 25
@@ -121,62 +121,52 @@ const generatePDF = async (petitionText, formData) => {
       return false;
     };
 
-    // Função para processar texto com negrito
-    const processTextWithBold = (text, defaultFont = "normal", size = 12, align = 'left', spacing = 4) => {
-      const parts = text.split(/(\*\*.*?\*\*)/g);
+    // Função para adicionar texto com espaçamento adequado
+    const addText = (text, font = "normal", size = 12, align = 'left', spacing = 7) => {
+      doc.setFont("times", font);
+      doc.setFontSize(size);
       
-      parts.forEach(part => {
-        const isBold = part.startsWith('**') && part.endsWith('**');
-        const cleanPart = isBold ? part.slice(2, -2) : part;
+      const lines = doc.splitTextToSize(text, contentWidth);
+      
+      lines.forEach(line => {
+        checkNewPage(spacing);
         
-        if (cleanPart.trim()) {
-          doc.setFont("times", isBold ? "bold" : defaultFont);
-          doc.setFontSize(size);
-          
-          const lines = doc.splitTextToSize(cleanPart, contentWidth);
-          
-          lines.forEach(line => {
-            checkNewPage(spacing);
-            
-            if (align === 'center') {
-              doc.text(line, pageWidth / 2, yPosition, { align: 'center' });
-            } else {
-              doc.text(line, margin.left, yPosition);
-            }
-            
-            yPosition += spacing;
-          });
+        if (align === 'center') {
+          doc.text(line, pageWidth / 2, yPosition, { align: 'center' });
+        } else {
+          doc.text(line, margin.left, yPosition);
         }
+        
+        yPosition += spacing;
       });
       
       yPosition += spacing; // Espaçamento extra após o bloco de texto
     };
 
     // Cabeçalho
-    processTextWithBold("AO JUIZADO DA INFÂNCIA E DA JUVENTUDE DA COMARCA DE GOIÂNIA -- GOIÁS", "bold", 12, 'center');
+    addText("AO JUIZADO DA INFÂNCIA E DA JUVENTUDE DA COMARCA DE GOIÂNIA -- GOIÁS", "bold", 12, 'center');
 
     // Dados da criança e responsável
     const childInfo = `${formData.childName.toUpperCase()}, nascida em ${format(formData.childBirthDate, 'dd.MM.yyyy')}, inscrita no CPF sob o n° ${formData.childCPF}`;
     const motherInfo = `representada por sua genitora, ${formData.motherName.toUpperCase()}, ${formData.motherQualification}`;
     
-    processTextWithBold(childInfo, "bold", 12);
-    processTextWithBold(motherInfo, "normal", 12);
+    addText(childInfo, "bold", 12);
+    addText(motherInfo, "normal", 12);
 
     // Título da Ação
-    processTextWithBold("AÇÃO DE OBRIGAÇÃO DE FAZER C/ DANOS MORAIS E PEDIDO DE TUTELA PROVISÓRIA DE URGÊNCIA", "bold", 12, 'center');
+    addText("AÇÃO DE OBRIGAÇÃO DE FAZER C/ DANOS MORAIS E PEDIDO DE TUTELA PROVISÓRIA DE URGÊNCIA", "bold", 12, 'center');
 
     // Em face de
-    const emFace = `em face do **MUNICÍPIO DE GOIÂNIA**, pessoa jurídica de direito público interno, inscrita no CNPJ sob o nº 01.612.092/0001-23, com sede na Avenida do Cerrado, nº 999, Park Lozandes, Goiânia-GO, CEP 74884-092, pelos fundamentos de fato e de direito a seguir expostos.`;
-    processTextWithBold(emFace, "normal", 12);
+    const emFace = `em face do MUNICÍPIO DE GOIÂNIA, pessoa jurídica de direito público interno, inscrita no CNPJ sob o nº 01.612.092/0001-23, com sede na Avenida do Cerrado, nº 999, Park Lozandes, Goiânia-GO, CEP 74884-092, pelos fundamentos de fato e de direito a seguir expostos.`;
+    addText(emFace, "normal", 12);
 
-    // Remove tags HTML do texto principal e remove o símbolo '>'
+    // Remove tags HTML do texto principal
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = petitionText;
     const cleanText = tempDiv.textContent || tempDiv.innerText;
-    const textWithoutArrows = cleanText.replace(/^\s*>\s*/gm, '');
 
     // Divide o texto em seções
-    const sections = textWithoutArrows.split(/(?=\d+\)\s+[A-Z])/);
+    const sections = cleanText.split(/(?=\d+\)\s+[A-Z])/);
 
     // Processa cada seção
     sections.forEach(section => {
@@ -188,12 +178,12 @@ const generatePDF = async (petitionText, formData) => {
           const content = section.substring(title.length);
           
           // Adiciona título da seção
-          processTextWithBold(`**${title}**`, "normal", 12);
+          addText(title, "bold", 12);
           
           // Adiciona conteúdo da seção
-          processTextWithBold(content.trim(), "normal", 12);
+          addText(content.trim(), "normal", 12);
         } else {
-          processTextWithBold(section.trim(), "normal", 12);
+          addText(section.trim(), "normal", 12);
         }
       }
     });
@@ -201,8 +191,8 @@ const generatePDF = async (petitionText, formData) => {
     // Adiciona data e assinatura
     yPosition = pageHeight - margin.bottom - 40;
     const finalDate = `Goiânia, ${format(new Date(), 'dd.MM.yyyy')}`;
-    processTextWithBold(finalDate, "normal", 12);
-    processTextWithBold("**DEFENSORIA PÚBLICA DO ESTADO DE GOIÁS**", "normal", 12);
+    addText(finalDate, "normal", 12);
+    addText("DEFENSORIA PÚBLICA DO ESTADO DE GOIÁS", "bold", 12);
 
     doc.save('peticao.pdf');
     return true;
